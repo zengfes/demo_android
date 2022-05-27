@@ -15,7 +15,7 @@
             <div class="p-float-label">
               <InputText
                 id="name"
-                v-model="v$.name.$model"
+                v-model="state.name"
                 :class="{ 'p-invalid': v$.name.$invalid && submitted }"
               />
               <label
@@ -47,9 +47,11 @@
               >I agree to the terms and conditions*</label
             >
           </div>
+          <div id="errors" class="text-pink-500 font-semibold"></div>
           <router-link to="/register" style="text-decoration: none"
             ><Button type="button" label="Register" class="mt-2"
           /></router-link>
+          <div id="credential"></div>
 
           <Button type="submit" label="Submit" class="mt-2" />
         </form>
@@ -58,82 +60,265 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { reactive, ref, onMounted } from "vue";
-import { email, required } from "@vuelidate/validators";
+import { required } from "@vuelidate/validators";
 import { useVuelidate } from "@vuelidate/core";
-import CountryService from "/service/CountryService.js";
+import axios from "axios";
+import base64js from "base64-js";
 
-export default {
-  setup() {
-    onMounted(() => {
-      countryService.value
-        .getCountries()
-        .then((data) => (countries.value = data));
-    });
+onMounted(() => {});
 
-    const state = reactive({
-      name: "",
-      email: "",
-      password: "",
-      accept: null,
-    });
+const state = reactive({
+  name: "",
+  accept: null,
+});
 
-    const rules = {
-      name: { required },
-      email: { required, email },
-      password: { required },
-      accept: { required },
-    };
-
-    const countryService = ref(new CountryService());
-    const submitted = ref(false);
-    const countries = ref();
-    const showMessage = ref(false);
-    const date = ref();
-    const country = ref();
-
-    const v$ = useVuelidate(rules, state);
-
-    const handleSubmit = (isFormValid) => {
-      submitted.value = true;
-
-      if (!isFormValid) {
-        return;
-      }
-
-      toggleDialog();
-    };
-    const toggleDialog = () => {
-      showMessage.value = !showMessage.value;
-
-      if (!showMessage.value) {
-        resetForm();
-      }
-    };
-    const resetForm = () => {
-      state.name = "";
-      state.email = "";
-      state.password = "";
-      state.date = null;
-      state.country = null;
-      state.accept = null;
-      submitted.value = false;
-    };
-
-    return {
-      state,
-      v$,
-      handleSubmit,
-      toggleDialog,
-      submitted,
-      countries,
-      showMessage,
-      date,
-      country,
-    };
-  },
+const rules = {
+  name: { required },
+  accept: { required },
 };
+
+const submitted = ref(false);
+
+const showMessage = ref(false);
+const v$ = useVuelidate(rules, state);
+
+const handleSubmit = (isFormValid) => {
+  submitted.value = true;
+
+  if (!isFormValid) {
+    return;
+  }
+
+  axios({
+    method: "post",
+    url: "http://10.20.1.97:8090/api/users/login",
+    params: { username: state.name },
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    //API要求的資料
+    data: {
+      username: state.name,
+    },
+    withCredentials: true,
+  })
+    .then((response) => {
+      console.log(response.data);
+      return response.data;
+    })
+    .then((credentialGetJson) => ({
+      publicKey: {
+        ...credentialGetJson.publicKey,
+        allowCredentials:
+          credentialGetJson.publicKey.allowCredentials &&
+          credentialGetJson.publicKey.allowCredentials.map((credential) => ({
+            ...credential,
+            id: base64urlToUint8array(credential.id),
+          })),
+        challenge: base64urlToUint8array(credentialGetJson.publicKey.challenge),
+        extensions: credentialGetJson.publicKey.extensions,
+      },
+    }))
+    .then((credentialGetOptions) =>
+      navigator.credentials.get(credentialGetOptions)
+    )
+    .then((publicKeyCredential) => ({
+      type: publicKeyCredential.type,
+      id: publicKeyCredential.id,
+      response: {
+        authenticatorData: uint8arrayToBase64url(
+          publicKeyCredential.response.authenticatorData
+        ),
+        clientDataJSON: uint8arrayToBase64url(
+          publicKeyCredential.response.clientDataJSON
+        ),
+        signature: uint8arrayToBase64url(
+          publicKeyCredential.response.signature
+        ),
+        userHandle:
+          publicKeyCredential.response.userHandle &&
+          uint8arrayToBase64url(publicKeyCredential.response.userHandle),
+      },
+      clientExtensionResults: publicKeyCredential.getClientExtensionResults(),
+    }))
+    .then((encodedResult) => {
+      //雙重驗證傳回結果
+      console.log(encodedResult);
+      //   console.log(JSON.stringify(encodedResult));
+      document.getElementById("credential").value =
+        JSON.stringify(encodedResult);
+      //   this.form.submit();
+      return axios({
+        method: "post",
+        url: "http://10.20.1.97:8090/api/users/welcome",
+        params: {
+          credential: JSON.stringify(encodedResult),
+          username: state.name,
+        },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        data: {
+          credential: JSON.stringify(encodedResult),
+          username: state.username,
+        },
+        withCredentials: true,
+      });
+    })
+    .then((response) => {
+      console.log(response);
+    })
+    .catch((error) =>
+      // console.log(error);
+      displayError(error)
+    );
+
+  toggleDialog();
+};
+const toggleDialog = () => {
+  showMessage.value = !showMessage.value;
+
+  if (!showMessage.value) {
+    resetForm();
+  }
+};
+const resetForm = () => {
+  state.name = "";
+  state.email = "";
+  state.password = "";
+  state.date = null;
+
+  submitted.value = false;
+};
+
+function base64urlToUint8array(base64Bytes) {
+  const padding = "====".substring(0, (4 - (base64Bytes.length % 4)) % 4);
+  return base64js.toByteArray(
+    (base64Bytes + padding).replace(/\//g, "_").replace(/\+/g, "-")
+  );
+}
+function uint8arrayToBase64url(bytes) {
+  if (bytes instanceof Uint8Array) {
+    return base64js
+      .fromByteArray(bytes)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+  } else {
+    return uint8arrayToBase64url(new Uint8Array(bytes));
+  }
+}
+
+function displayError(error) {
+  const errorElem = document.getElementById("errors");
+  errorElem.innerHTML = error;
+  const a = String(error).includes("500");
+  console.log(a);
+  if (a == true) {
+    errorElem.innerHTML = "Account not registered !!";
+  }
+  console.log(error);
+}
+
+//
+// function checkStatus(response) {
+//   if (response.status !== 200) {
+//     // throwError(response);
+//     console.log("error");
+//   } else {
+//     return response;
+//   }
+// }
+
+// function initialCheckStatus(response) {
+//   console.log(response.data);
+//   checkStatus(response.data);
+//   return response.data.json();
+// }
+
+// function followRedirect(response) {
+//   if (response.status == 200) {
+//     window.location.href = response.url;
+//   } else {
+//     // throwError(response);
+//     console.log("error");
+//   }
+// }
+
+// axios({
+//   method: "post",
+//   url: "http://10.20.1.97:8090/api/users/welcome",
+//   headers: {
+//     Accept: "application/json",
+//     "Content-Type": "application/json",
+//   },
+//   data: {
+//     username: state.name,
+//     credential: "111",
+//   },
+//   withCredentials: true,
+// });
+
+// async function checkCredentials() {
+//   const form = document.getElementById("form");
+//   const formData = new FormData(form);
+//   fetch("http://10.20.1.97:8090/api/users/welcome", {
+//     method: "POST",
+//     body: formData,
+//   })
+//     .then((response) => {
+//       console.log(response);
+//       return initialCheckStatus(response);
+//     })
+//     .then((credentialGetJson) => ({
+//       publicKey: {
+//         ...credentialGetJson.publicKey,
+//         allowCredentials:
+//           credentialGetJson.publicKey.allowCredentials &&
+//           credentialGetJson.publicKey.allowCredentials.map((credential) => ({
+//             ...credential,
+//             id: base64urlToUint8array(credential.id),
+//           })),
+//         challenge: base64urlToUint8array(credentialGetJson.publicKey.challenge),
+//         extensions: credentialGetJson.publicKey.extensions,
+//       },
+//     }))
+//     .then((credentialGetOptions) =>
+//       navigator.credentials.get(credentialGetOptions)
+//     )
+//     .then((publicKeyCredential) => ({
+//       type: publicKeyCredential.type,
+//       id: publicKeyCredential.id,
+//       response: {
+//         authenticatorData: uint8arrayToBase64url(
+//           publicKeyCredential.response.authenticatorData
+//         ),
+//         clientDataJSON: uint8arrayToBase64url(
+//           publicKeyCredential.response.clientDataJSON
+//         ),
+//         signature: uint8arrayToBase64url(
+//           publicKeyCredential.response.signature
+//         ),
+//         userHandle:
+//           publicKeyCredential.response.userHandle &&
+//           uint8arrayToBase64url(publicKeyCredential.response.userHandle),
+//       },
+//       clientExtensionResults: publicKeyCredential.getClientExtensionResults(),
+//     }))
+//     .then((encodedResult) => {
+//       document.getElementById("credential").value =
+//         JSON.stringify(encodedResult);
+//       this.form.submit();
+//     })
+//     .catch((error) => {
+//       console.log(error);
+//       displayError(error);
+//     });
+// }
 </script>
 
 <style lang="scss" scoped>

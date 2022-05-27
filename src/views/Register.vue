@@ -6,70 +6,31 @@
           <img src="../logo.jpg" alt="" height="250" g />
         </div>
 
-        <form
-          @submit.prevent="handleSubmit(!v$.$invalid)"
-          class="p-fluid mx-auto p-6 border-round pt-5"
-        >
+        <form class="p-fluid mx-auto p-6 border-round pt-5" id="form">
           <div class="field">
             <h2 class="text-center mt-0 mb-4">註冊</h2>
             <div class="p-float-label">
-              <InputText
-                id="name"
-                v-model="v$.name.$model"
-                :class="{ 'p-invalid': v$.name.$invalid && submitted }"
-              />
-              <label
-                for="name"
-                :class="{ 'p-error': v$.name.$invalid && submitted }"
-                >UserName*</label
-              >
+              <InputText id="name" v-model="state.username" required />
+              <label for="name">UserName*</label>
             </div>
-            <small
-              v-if="
-                (v$.name.$invalid && submitted) || v$.name.$pending.$response
-              "
-              class="p-error"
-              >{{ v$.name.required.$message.replace("Value", "Name") }}</small
-            >
           </div>
           <div class="field">
             <div class="p-float-label">
               <InputText
                 id="email"
-                v-model="v$.email.$model"
-                :class="{ 'p-invalid': v$.email.$invalid && submitted }"
+                v-model="state.displayname"
                 aria-describedby="email-error"
               />
-              <label
-                for="email"
-                :class="{ 'p-error': v$.email.$invalid && submitted }"
-                >DisplayName*</label
-              >
+              <label for="email">DisplayName*</label>
             </div>
-            <span v-if="v$.email.$error && submitted">
-              <span
-                id="email-error"
-                v-for="(error, index) of v$.email.$errors"
-                :key="index"
-              >
-                <small class="p-error">{{ error.$message }}</small>
-              </span>
-            </span>
-            <small
-              v-else-if="
-                (v$.email.$invalid && submitted) || v$.email.$pending.$response
-              "
-              class="p-error"
-              >{{ v$.email.required.$message.replace("Value", "Email") }}</small
-            >
           </div>
           <div class="field">
             <div class="p-float-label">
               <Password
                 id="password"
-                v-model="v$.password.$model"
-                :class="{ 'p-invalid': v$.password.$invalid && submitted }"
+                v-model="state.password"
                 toggleMask
+                required
               >
                 <template #header>
                   <h6>Pick a password</h6>
@@ -86,46 +47,21 @@
                   </ul>
                 </template>
               </Password>
-              <label
-                for="password"
-                :class="{ 'p-error': v$.password.$invalid && submitted }"
-                >Password*</label
-              >
+              <label for="password">Password*</label>
             </div>
-            <small
-              v-if="
-                (v$.password.$invalid && submitted) ||
-                v$.password.$pending.$response
-              "
-              class="p-error"
-              >{{
-                v$.password.required.$message.replace("Value", "Password")
-              }}</small
-            >
           </div>
           <div class="field">
             <div class="p-float-label">
               <InputText
-                id="name"
-                v-model="v$.name.$model"
-                :class="{ 'p-invalid': v$.name.$invalid && submitted }"
+                id="CredentialName"
+                v-model="state.credentialName"
+                required
               />
-              <label
-                for="name"
-                :class="{ 'p-error': v$.name.$invalid && submitted }"
-                >CredentialName*</label
-              >
+              <label for="name">CredentialName*</label>
             </div>
-            <small
-              v-if="
-                (v$.name.$invalid && submitted) || v$.name.$pending.$response
-              "
-              class="p-error"
-              >{{ v$.name.required.$message.replace("Value", "Name") }}</small
-            >
           </div>
 
-          <div class="field-checkbox">
+          <!-- <div class="field-checkbox">
             <Checkbox
               id="accept"
               name="accept"
@@ -138,91 +74,182 @@
               :class="{ 'p-error': v$.accept.$invalid && submitted }"
               >I agree to the terms and conditions*</label
             >
-          </div>
+          </div> -->
 
-          <Button type="submit" label="Submit" class="mt-2" />
+          <Button
+            type="submit"
+            label="Submit"
+            @click.prevent="register"
+            class="mt-2"
+          />
+          <!-- <button @click="getuser">getUser</button> -->
+          <div id="errors"></div>
         </form>
       </div>
     </div>
   </div>
 </template>
 
-<script>
-import { reactive, ref, onMounted } from "vue";
-import { email, required } from "@vuelidate/validators";
-import { useVuelidate } from "@vuelidate/core";
-import CountryService from "/service/CountryService.js";
+<script setup>
+import { reactive, onMounted } from "vue";
+// import { email, required } from "@vuelidate/validators";
+// import { useVuelidate } from "@vuelidate/core";
+import { useRouter } from "vue-router";
+import base64js from "base64-js";
+import axios from "axios";
+const router = useRouter();
 
-export default {
-  setup() {
-    onMounted(() => {
-      countryService.value
-        .getCountries()
-        .then((data) => (countries.value = data));
+onMounted(() => {
+  //
+});
+
+const state = reactive({
+  username: "",
+  displayname: "",
+  password: "",
+  credentialName: "",
+});
+
+//不懂encodedResult
+// const getuser = () => {
+//   console.log(typeof JSON.stringify("encodedResult"));
+// };
+
+// const rules = {
+//   name: { required },
+//   email: { required, email },
+//   password: { required },
+//   accept: { required },
+// };
+
+// const v$ = useVuelidate(rules, state);
+
+const register = () => {
+  // const formData = new FormData(e.target);
+  // const userRequest=new UserRequest(
+  //     formData.get("username"),
+  //     formData.get("display"),
+  //     formData.get("pwdname")
+  // )
+  axios({
+    method: "post",
+    url: "http://10.20.1.97:8090/api/users/register",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    data: {
+      displayName: state.displayname,
+      password: state.password,
+      username: state.username,
+    },
+    withCredentials: true,
+  })
+    .then((response) => {
+      console.log(response.data);
+      return response.data;
+    })
+    .then((credentialCreateJson) => ({
+      publicKey: {
+        ...credentialCreateJson.publicKey,
+        challenge: base64urlToUint8array(
+          credentialCreateJson.publicKey.challenge
+        ),
+        user: {
+          ...credentialCreateJson.publicKey.user,
+          id: base64urlToUint8array(credentialCreateJson.publicKey.user.id),
+        },
+        excludeCredentials:
+          credentialCreateJson.publicKey.excludeCredentials.map(
+            (credential) => ({
+              ...credential,
+              id: base64urlToUint8array(credential.id),
+            })
+          ),
+        extensions: credentialCreateJson.publicKey.extensions,
+      },
+    }))
+    //雙重驗證
+    .then((credentialCreateOptions) =>
+      navigator.credentials.create(credentialCreateOptions)
+    )
+    .then((publicKeyCredential) => ({
+      type: publicKeyCredential.type,
+      id: publicKeyCredential.id,
+      response: {
+        attestationObject: uint8arrayToBase64url(
+          publicKeyCredential.response.attestationObject
+        ),
+        clientDataJSON: uint8arrayToBase64url(
+          publicKeyCredential.response.clientDataJSON
+        ),
+        transports:
+          (publicKeyCredential.response.getTransports &&
+            publicKeyCredential.response.getTransports()) ||
+          [],
+      },
+      clientExtensionResults: publicKeyCredential.getClientExtensionResults(),
+    }))
+    //不懂
+    .then((encodedResult) => {
+      const form = document.getElementById("form");
+      const formData = new FormData(form);
+      formData.append("credential", JSON.stringify(encodedResult));
+      console.log(encodedResult);
+      console.log(typeof JSON.stringify(encodedResult));
+      console.log(JSON.stringify(encodedResult));
+
+      return axios({
+        method: "post",
+        url: "http://10.20.1.97:8090/api/users/finishauth",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        data: {
+          credential: JSON.stringify(encodedResult),
+          username: state.username,
+          credname: state.credentialName,
+        },
+        withCredentials: true,
+      });
+    })
+    .then((response) => {
+      console.log(response);
+    })
+    .then(() => {
+      router.push({
+        name: "Login",
+      });
+    })
+    .catch((error) => {
+      displayError(error);
     });
-
-    const state = reactive({
-      name: "",
-      email: "",
-      password: "",
-      accept: null,
-    });
-
-    const rules = {
-      name: { required },
-      email: { required, email },
-      password: { required },
-      accept: { required },
-    };
-
-    const countryService = ref(new CountryService());
-    const submitted = ref(false);
-    const countries = ref();
-    const showMessage = ref(false);
-    const date = ref();
-    const country = ref();
-
-    const v$ = useVuelidate(rules, state);
-
-    const handleSubmit = (isFormValid) => {
-      submitted.value = true;
-
-      if (!isFormValid) {
-        return;
-      }
-
-      toggleDialog();
-    };
-    const toggleDialog = () => {
-      showMessage.value = !showMessage.value;
-
-      if (!showMessage.value) {
-        resetForm();
-      }
-    };
-    const resetForm = () => {
-      state.name = "";
-      state.email = "";
-      state.password = "";
-      state.date = null;
-      state.country = null;
-      state.accept = null;
-      submitted.value = false;
-    };
-
-    return {
-      state,
-      v$,
-      handleSubmit,
-      toggleDialog,
-      submitted,
-      countries,
-      showMessage,
-      date,
-      country,
-    };
-  },
 };
+
+function base64urlToUint8array(base64Bytes) {
+  const padding = "====".substring(0, (4 - (base64Bytes.length % 4)) % 4);
+  return base64js.toByteArray(
+    (base64Bytes + padding).replace(/\//g, "_").replace(/\+/g, "-")
+  );
+}
+function uint8arrayToBase64url(bytes) {
+  if (bytes instanceof Uint8Array) {
+    return base64js
+      .fromByteArray(bytes)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
+  } else {
+    return uint8arrayToBase64url(new Uint8Array(bytes));
+  }
+}
+
+function displayError(error) {
+  const errorElem = document.getElementById("errors");
+  errorElem.innerHTML = error;
+  console.error(error);
+}
 </script>
 
 <style lang="scss" scoped>

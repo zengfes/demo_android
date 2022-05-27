@@ -2,7 +2,6 @@ import 'primevue/resources/primevue.min.css';
 import '/node_modules/primeflex/primeflex.css';
 import 'primeicons/primeicons.css';
 import "primevue/resources/themes/saga-blue/theme.css"       //theme
-import "primevue/resources/primevue.min.css"                 //core css                         //icons
 // import 'prismjs/themes/prism-coy.css';
 
 
