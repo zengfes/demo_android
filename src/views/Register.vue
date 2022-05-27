@@ -75,15 +75,20 @@
               >I agree to the terms and conditions*</label
             >
           </div> -->
-
+          <div id="errors" class="text-pink-500 font-semibold">
+            {{ errorText }}
+          </div>
           <Button
             type="submit"
             label="Submit"
             @click.prevent="register"
             class="mt-2"
           />
+          <router-link to="/" style="text-decoration: none">
+            <Button type="submit" label="Login" class="mt-2" />
+          </router-link>
+
           <!-- <button @click="getuser">getUser</button> -->
-          <div id="errors"></div>
         </form>
       </div>
     </div>
@@ -91,7 +96,7 @@
 </template>
 
 <script setup>
-import { reactive, onMounted } from "vue";
+import { reactive, onMounted, ref } from "vue";
 // import { email, required } from "@vuelidate/validators";
 // import { useVuelidate } from "@vuelidate/core";
 import { useRouter } from "vue-router";
@@ -102,6 +107,8 @@ const router = useRouter();
 onMounted(() => {
   //
 });
+
+const errorText = ref("");
 
 const state = reactive({
   username: "",
@@ -147,6 +154,7 @@ const register = () => {
   })
     .then((response) => {
       console.log(response.data);
+      errorText.value = "";
       return response.data;
     })
     .then((credentialCreateJson) => ({
@@ -246,8 +254,11 @@ function uint8arrayToBase64url(bytes) {
 }
 
 function displayError(error) {
-  const errorElem = document.getElementById("errors");
-  errorElem.innerHTML = error;
+  const a = String(error).includes("500");
+  console.log(a);
+  if (a == true) {
+    errorText.value = "Duplicate account registration !!";
+  }
   console.error(error);
 }
 </script>

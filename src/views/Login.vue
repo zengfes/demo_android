@@ -6,10 +6,7 @@
           <img src="../logo.jpg" alt="" height="250" g />
         </div>
 
-        <form
-          @submit.prevent="handleSubmit(!v$.$invalid)"
-          class="p-fluid mx-auto p-6 border-round pt-5"
-        >
+        <form class="p-fluid mx-auto p-6 border-round pt-5">
           <div class="field">
             <h2 class="text-center mt-0 mb-4">登入</h2>
             <div class="p-float-label">
@@ -47,13 +44,20 @@
               >I agree to the terms and conditions*</label
             >
           </div>
-          <div id="errors" class="text-pink-500 font-semibold"></div>
+          <div id="errors" class="text-pink-500 font-semibold">
+            {{ errorText }}
+          </div>
           <router-link to="/register" style="text-decoration: none"
             ><Button type="button" label="Register" class="mt-2"
           /></router-link>
           <div id="credential"></div>
 
-          <Button type="submit" label="Submit" class="mt-2" />
+          <Button
+            type="submit"
+            label="Submit"
+            @click.prevent="handleSubmit(!v$.$invalid)"
+            class="mt-2"
+          />
         </form>
       </div>
     </div>
@@ -69,6 +73,8 @@ import base64js from "base64-js";
 
 onMounted(() => {});
 
+const errorText = ref("");
+
 const state = reactive({
   name: "",
   accept: null,
@@ -81,7 +87,7 @@ const rules = {
 
 const submitted = ref(false);
 
-const showMessage = ref(false);
+// const showMessage = ref(false);
 const v$ = useVuelidate(rules, state);
 
 const handleSubmit = (isFormValid) => {
@@ -107,6 +113,7 @@ const handleSubmit = (isFormValid) => {
   })
     .then((response) => {
       console.log(response.data);
+      errorText.value = "";
       return response.data;
     })
     .then((credentialGetJson) => ({
@@ -176,23 +183,6 @@ const handleSubmit = (isFormValid) => {
       // console.log(error);
       displayError(error)
     );
-
-  toggleDialog();
-};
-const toggleDialog = () => {
-  showMessage.value = !showMessage.value;
-
-  if (!showMessage.value) {
-    resetForm();
-  }
-};
-const resetForm = () => {
-  state.name = "";
-  state.email = "";
-  state.password = "";
-  state.date = null;
-
-  submitted.value = false;
 };
 
 function base64urlToUint8array(base64Bytes) {
@@ -214,13 +204,12 @@ function uint8arrayToBase64url(bytes) {
 }
 
 function displayError(error) {
-  const errorElem = document.getElementById("errors");
-  errorElem.innerHTML = error;
   const a = String(error).includes("500");
   console.log(a);
   if (a == true) {
-    errorElem.innerHTML = "Account not registered !!";
+    errorText.value = "Account not registered !!";
   }
+
   console.log(error);
 }
 
